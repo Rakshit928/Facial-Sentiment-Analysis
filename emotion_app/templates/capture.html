@@ -1,0 +1,63 @@
+{% csrf_token %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Emotion Detection</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <video id="video" width="640" height="480" autoplay></video>
+    <button id="capture">Capture</button>
+    <canvas id="canvas" width="480" height="480" style="display:none;"></canvas>
+    <div id="result"></div>
+    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+
+    <script>
+        // Access camera and display video feed
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                document.getElementById('video').srcObject = stream;
+            })
+            .catch(err => {
+                console.log("Error accessing camera.", err);
+            });
+
+        // Capture image on button click
+        document.getElementById('capture').addEventListener('click', function() {
+            const canvas = document.getElementById('canvas');
+            const context = canvas.getContext('2d');
+            const video = document.getElementById('video');
+
+            // Draw video frame to canvas
+            context.drawImage(video, 0, 0, 480, 480);
+
+            // Convert canvas to data URL
+            const imgDataURL = canvas.toDataURL('image/jpeg', 0.9);
+
+            // Send image data to server
+            $.ajax({
+                type: 'POST',
+                url: '{% url "predict_emotion" %}',
+                headers: {
+                    'X-CSRFToken': $('input[name=csrfmiddlewaretoken]').val()
+                },
+                data: {
+                    'image_data': imgDataURL
+                },
+                dataType: 'json',
+                success: function(response) {
+                    console.log(response);
+                    if (response.emotion) {
+                        $('#result').text('Predicted Emotion: ' + response.emotion);
+                    } else {
+                        $('#result').text('No emotion detected.');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    $('#result').text('Error: ' + status + ' ' + error);
+                    console.log(xhr.responseText);
+                }
+            });
+    </script>
+</body>
+</html>
